@@ -1,0 +1,39 @@
+version: '3.7'
+services:
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    ports:
+      - ${PORT:-3000}:3000
+    environment:
+      NEXT_PUBLIC_API_URL: http://back:8080
+    restart: unless-stopped
+
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    ports:
+      - ${PORT_API:-8080}:8080
+    restart: unless-stopped
+
+  db:
+    image: mysql:8
+    volumes:
+      - type: bind
+        source: "./db/init.sql"
+        target: "/docker-entrypoint-initdb.d/init.sql"
+      - type: bind
+        source: "./db/my.cnf"
+        target: "/etc/mysql/conf.d/my.cnf"
+      - ./db/log:/var/log/mysql
+      - mysql_data:/var/lib/mysql
+    environment:
+      MYSQL_USER: ${MYSQL_USER:-prc_hub}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
