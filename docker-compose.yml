@@ -18,15 +18,30 @@ services:
     build:
       context: ./back
       dockerfile: Dockerfile
+      target: development
+    depends_on:
+      - db
     ports:
       - ${PORT_API:-8080}:8080
+    volumes:
+      - ./back/src/:/app/src/
+      - maven_repository:/root/.m2
+      - type: bind
+        source: "./back/pom.xml"
+        target: "/app/pom.xml"
     restart: unless-stopped
+    environment:
+      MYSQL_HOST: host.docker.internal
+      MYSQL_PORT: 3306
+      MYSQL_DB: prc_hub
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
 
   db:
     image: mysql:8
     volumes:
       - type: bind
-        source: "./back/init.sql"
+        source: "./back/src/main/resources/database/schema.sql"
         target: "/docker-entrypoint-initdb.d/init.sql"
       - type: bind
         source: "./db/my.cnf"
@@ -37,8 +52,11 @@ services:
       MYSQL_USER: ${MYSQL_USER:-prc_hub}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+    ports:
+      - ${PORT:-3306}:3306
     restart: unless-stopped
 
 volumes:
   mysql_data:
   next_node_modules:
+  maven_repository:
