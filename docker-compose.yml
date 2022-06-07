@@ -11,7 +11,8 @@ services:
       - ./front/:/app/
       - next_node_modules:/app/node_modules
     environment:
-      NEXT_PUBLIC_API_URL: http://back:8080
+      TZ: ${TZ:-UTC}
+      NEXT_PUBLIC_API_URL: http://back:${PORT_API:-1323}
     restart: unless-stopped
 
   back:
@@ -22,41 +23,57 @@ services:
     depends_on:
       - db
     ports:
-      - ${PORT_API:-8080}:8080
+      - ${PORT_API:-1323}:1323
     volumes:
-      - ./back/src/:/app/src/
-      - maven_repository:/root/.m2
-      - type: bind
-        source: "./back/pom.xml"
-        target: "/app/pom.xml"
-    restart: unless-stopped
+      - ./back:/go/src/app
+      - go_src:/src/
     environment:
-      MYSQL_HOST: host.docker.internal
-      MYSQL_PORT: 3306
-      MYSQL_DB: prc_hub
-      MYSQL_USER: ${MYSQL_USER:-root}
+      TZ: ${TZ:-UTC}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-prc_hub}
+      MYSQL_USER: ${MYSQL_USER:-prc_hub}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
+      LOG_LEVEL: ${LOG_LEVEL:-2}
+      GZIP_LEVEL: ${GZIP_LEVEL:-6}
+      MYSQL_HOST: ${MYSQL_HOST:-db}
+      JWT_ISSUER: ${JWT_ISSUER:-prc_hub}
+      JWT_SECRET: ${JWT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@prchub.com}
+      ADMIN_PASSWD: ${ADMIN_PASSWD:-password}
+    restart: unless-stopped
 
   db:
     image: mysql:8
     volumes:
       - type: bind
-        source: "./back/src/main/resources/database/schema.sql"
+        source: "./back/db/init.sql"
         target: "/docker-entrypoint-initdb.d/init.sql"
       - type: bind
-        source: "./db/my.cnf"
+        source: "./back/db/my.cnf"
         target: "/etc/mysql/conf.d/my.cnf"
-      - ./db/log:/var/log/mysql
+      - ./back/db/log:/var/log/mysql
       - mysql_data:/var/lib/mysql
     environment:
+      TZ: ${TZ:-UTC}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-prc_hub}
       MYSQL_USER: ${MYSQL_USER:-prc_hub}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
     ports:
-      - ${PORT:-3306}:3306
+      - 3306
     restart: unless-stopped
+
+  prism:
+    image: stoplight/prism:4
+    command: 'mock -h 0.0.0.0 /tmp/api.oas3.yml'
+    volumes:
+      - ./back/api.oas3.yml:/tmp/api.oas3.yml:ro
+    ports:
+      # Serve the mocked API locally as available on port 8080
+      - '${PORT_MOCK:-4010}:4010'
 
 volumes:
   mysql_data:
   next_node_modules:
-  maven_repository:
+  go_src:
