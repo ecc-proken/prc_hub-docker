@@ -74,6 +74,7 @@ services:
     ports:
       # Serve the mocked API locally as available on port 8080
       - '${PORT_MOCK:-4010}:4010'
+    restart: unless-stopped
 
 volumes:
   mysql_data:
